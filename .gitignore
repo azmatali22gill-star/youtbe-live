@@ -1,7 +1,8 @@
 venv/
 __pycache__/
 *.pyc
-client_secret.json
-token.json
 hls/
 recordings/
+client_secret.json
+token.json
+.env

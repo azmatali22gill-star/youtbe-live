@@ -33,8 +33,7 @@ os.makedirs(RECORD_PATH, exist_ok=True)
 CLIENT_SECRET_FILE = os.path.join(BASE_DIR, "client_secret.json")
 TOKEN_FILE = os.path.join(BASE_DIR, "token.json")
 
-def build_hls_command(session_id, segment_time=4, playlist_size=0):
-    """Single-bitrate HLS"""
+def build_hls_command(session_id, segment_time=4, playlist_size=5):
     session_folder = os.path.join(HLS_PATH, session_id)
     os.makedirs(session_folder, exist_ok=True)
 
@@ -43,15 +42,22 @@ def build_hls_command(session_id, segment_time=4, playlist_size=0):
         "-rtsp_transport", "tcp",
         "-fflags", "+genpts",
         "-i", IP_CAMERA_URL,
+
         "-c:v", "libx264",
         "-preset", "veryfast",
+        "-c:a", "aac",
+        "-b:a", "128k",
+
         "-f", "hls",
         "-hls_time", str(segment_time),
         "-hls_list_size", str(playlist_size),
-        "-hls_flags", "independent_segments",
-        "-hls_segment_filename", os.path.join(session_folder, "segment_%03d.ts"),
+        "-hls_flags", "delete_segments+append_list+omit_endlist",
+        "-hls_segment_filename",
+        os.path.join(session_folder, "segment_%03d.ts"),
+
         os.path.join(session_folder, "playlist.m3u8")
     ]
+     
 
 def build_hls_command_multibitrate(session_id, segment_time=4, playlist_size=0):
 
@@ -111,16 +117,17 @@ def build_hls_to_rtmp_command(hls_playlist_url):
     return [
         "ffmpeg",
         "-re",
+        "-protocol_whitelist", "file,http,https,tcp,tls",
+        "-reconnect", "1",
+        "-reconnect_streamed", "1",
+        "-reconnect_delay_max", "2",
         "-i", hls_playlist_url,
-
-        "-c:v","libx264",
-        "-preset","veryfast",
-        "-b:v","2500k",
-
-        "-c:a","aac",
-        "-b:a","128k",
-
-        "-f","flv",
+        "-c:v", "libx264",
+        "-preset", "veryfast",
+        "-b:v", "2500k",
+        "-c:a", "aac",
+        "-b:a", "128k",
+        "-f", "flv",
         f"{YOUTUBE_RTMP_URL}/{YOUTUBE_STREAM_KEY}"
     ]
 
@@ -334,7 +341,7 @@ def stop_recording():
         raise HTTPException(status_code=400, detail="Recording not running")
 
     try:
-        # try graceful stop
+        
         record_process.terminate()
 
         try:
@@ -472,7 +479,11 @@ def start_hls_bridge(session_id: str):
     cmd = build_hls_to_rtmp_command(playlist_path)
     hls_bridge_process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     hls_bridge_status = "connecting"
-    threading.Thread(target=monitor_hls_bridge, daemon=True).start()
+    threading.Thread(
+    target=monitor_hls_bridge,
+    args=(session_id,),
+    daemon=True
+    ).start()    
     return {"message": "HLS bridge started", "playlist": playlist_path}
 
 
