@@ -176,11 +176,15 @@ def monitor_hls_bridge(session_id, retry_time=3, max_retries=3):
 
 
         if hls_bridge_process.stderr:
-            for line in hls_bridge_process.stderr:
-                line = line.strip()
-                if "403 Forbidden" in line or "Invalid" in line.lower():
+            while True:
+             line = hls_bridge_process.stderr.readline()
+             if not line:
+              break
+              line = line.strip()
+                
+            if "403 Forbidden" in line or "Invalid" in line.lower():
                     hls_bridge_status = "error"
-                if "Connection refused" in line or "Broken pipe" in line:
+            if "Connection refused" in line or "Broken pipe" in line:
                     hls_bridge_status = "error"
 
         if hls_bridge_status not in ["error", "waiting_segment", "ended"]:
